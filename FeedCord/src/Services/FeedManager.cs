@@ -37,11 +37,11 @@ namespace FeedCord.Services
             _logger = logger;
             _logAggregator = logAggregator;
             _feedStates = new ConcurrentDictionary<string, FeedState>();
-            _hasFilterEnabled = config.PostFilters is not null && config.PostFilters.Any();
+            _hasFilterEnabled = config.PostFilters?.Any() ?? false;
             _instancedConcurrentRequests = new SemaphoreSlim(config.ConcurrentRequests);
             
             //TODO --> this sets flag for 'all' in filters - this and all filter logic needs to be moved out of FeedManager and in to it's own helper/service
-            if (_hasFilterEnabled)
+            if (_hasFilterEnabled && _config.PostFilters != null)
             {
                 if (_config.PostFilters.Any(wf => wf.Url == "all"))
                     _hasAllFilter = true;
@@ -172,9 +172,9 @@ namespace FeedCord.Services
             }
             catch (HttpRequestException ex)
             {
-                _logAggregator.AddUrlResponse(url, (int)ex.StatusCode);
+                _logAggregator.AddUrlResponse(url, (int)(ex.StatusCode ?? System.Net.HttpStatusCode.BadRequest));
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 _logger.LogWarning("Failed to instantiate URL: {Url}", url);
             }
@@ -223,10 +223,10 @@ namespace FeedCord.Services
                     }
                     
                     //TODO --> Implement Filter checking in to a helper/service & remove from FeedManager
-                    if (_hasFilterEnabled)
+                    if (_hasFilterEnabled && _config.PostFilters != null)
                     {
-                        
-                        if (_config.PostFilters.FirstOrDefault(wf => wf.Url == url) is { } filter)
+                        var filter = _config.PostFilters.FirstOrDefault(wf => wf.Url == url);
+                        if (filter != null)
                         {
                             var filterFound = FilterConfigs.GetFilterSuccess(post, filter.Filters.ToArray());
 
@@ -242,18 +242,14 @@ namespace FeedCord.Services
                         }
                         else if (_hasAllFilter)
                         {
-                            if (_config.PostFilters.FirstOrDefault(wf => wf.Url == "all") is { } allFilter)
+                            var allFilter = _config.PostFilters.FirstOrDefault(wf => wf.Url == "all");
+                            if (allFilter != null)
                             {
                                 var filterFound = FilterConfigs.GetFilterSuccess(post, allFilter.Filters.ToArray());
 
                                 if (filterFound)
                                 {
                                     newPosts.Add(post);
-                                }
-                                else
-                                {
-                                    _logger.LogInformation(
-                                        "A new post was omitted because it does not comply to the set filter: {Url}", url);
                                 }
                             }
                         }
@@ -369,18 +365,8 @@ namespace FeedCord.Services
 
         private void HandleFeedError(string url, FeedState feedState, Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to fetch or parse feed {Url}", url);
             feedState.ErrorCount++;
-
-            if (feedState.ErrorCount < 3 || !_config.EnableAutoRemove) return;
-            
-            _logger.LogWarning("Removing Url: {Url} after too many errors", url);
-            var successRemove = _feedStates.TryRemove(url, out _);
-
-            if (!successRemove)
-            {
-                _logger.LogWarning("Failed to remove Url: {Url}", url);
-            }
+            _logger.LogError(ex, "Failed to fetch feed from {Url}. Error count: {ErrorCount}", url, feedState.ErrorCount);
         }
 
 
