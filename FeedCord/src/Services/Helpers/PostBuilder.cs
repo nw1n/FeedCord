@@ -143,7 +143,7 @@ namespace FeedCord.Services.Helpers
             var description = DecodeContent(post.Description ?? string.Empty);
             var subtitle = feed.Title;
             var author = string.Empty;
-            var pubDate = DateTime.MinValue;
+            var pubDate = DateTime.TryParse(post.PublishingDate.ToString(), out var fallbackDate) ? fallbackDate : DateTime.Now;
             var labels = Array.Empty<string>();
 
             // Extract labels from GitLab RSS XML
@@ -165,7 +165,7 @@ namespace FeedCord.Services.Helpers
                     ? tempDate 
                     : DateTime.TryParse(atomItem.UpdatedDate?.ToString(), out tempDate) 
                         ? tempDate 
-                        : DateTime.MinValue;
+                        : pubDate;
             }
 
             // trim description
