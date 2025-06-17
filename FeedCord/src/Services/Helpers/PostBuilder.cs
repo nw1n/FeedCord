@@ -72,6 +72,10 @@ namespace FeedCord.Services.Helpers
             {
                 return TryBuildRedditPost(post, feed, trim, imageUrl);
             }
+            else if (feed.Link.Contains("gitlab.com"))
+            {
+                return TryBuildGitlabPost(post, feed, trim, imageUrl);
+            }
 
             string title;
             string imageLink;
@@ -125,6 +129,36 @@ namespace FeedCord.Services.Helpers
                 decSubtitle, 
                 pubDate, 
                 decAuthor);
+        }
+
+        private static Post TryBuildGitlabPost(
+            FeedItem post,
+            Feed feed,
+            int trim,
+            string imageUrl)
+        {
+            var title = post.Title ?? string.Empty;
+            var link = post.Link ?? string.Empty;
+            var description = DecodeContent(post.Description ?? string.Empty);
+            var subtitle = feed.Title;
+            var author = string.Empty;
+            var pubDate = DateTime.MinValue;
+
+            // trim description
+            if (trim > 0 && description.Length > trim)
+            {
+                description = description[..trim] + "...";
+            }
+
+            return new Post(
+                Title: title,
+                ImageUrl: "",
+                Description: description,
+                Link: link,
+                Tag: subtitle,
+                PublishDate: pubDate,
+                Author: author
+            );
         }
 
         private static Post TryBuildRedditPost(
