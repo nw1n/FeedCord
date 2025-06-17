@@ -9,7 +9,7 @@ using FeedCord.Core.Interfaces;
 using FeedCord.Services.Helpers;
 
 namespace FeedCord.Services
-{
+{_logger.LogInformation
     public class FeedManager : IFeedManager
     {
         private readonly bool _hasAllFilter = false;
@@ -208,15 +208,6 @@ namespace FeedCord.Services
             }
             
             var freshlyFetched = posts.Where(p => p?.PublishDate > feedState.LastPublishDate).ToList();
-            
-            _logger.LogInformation("Feed state LastPublishDate: {LastPublishDate}. Found {TotalPosts} posts, {FreshPosts} are newer than last publish date", 
-                feedState.LastPublishDate, posts.Count, freshlyFetched.Count);
-            
-            foreach (var post in posts.Where(p => p != null))
-            {
-                _logger.LogInformation("Post '{Title}' publish date: {PublishDate}, is newer: {IsNewer}", 
-                    post!.Title, post.PublishDate, post.PublishDate > feedState.LastPublishDate);
-            }
 
             if (freshlyFetched.Any())
             {
@@ -238,12 +229,6 @@ namespace FeedCord.Services
                         if (filter != null)
                         {
                             var filterFound = FilterConfigs.GetFilterSuccess(post, filter.Filters.ToArray());
-                            
-                            _logger.LogInformation("Filter check for post '{Title}' with labels [{Labels}] against filters [{Filters}]: {Result}", 
-                                post.Title, 
-                                string.Join(", ", post.Labels ?? Array.Empty<string>()), 
-                                string.Join(", ", filter.Filters), 
-                                filterFound ? "PASSED" : "FAILED");
 
                             if (filterFound)
                             {
@@ -261,21 +246,10 @@ namespace FeedCord.Services
                             if (allFilter != null)
                             {
                                 var filterFound = FilterConfigs.GetFilterSuccess(post, allFilter.Filters.ToArray());
-                                
-                                _logger.LogInformation("All filter check for post '{Title}' with labels [{Labels}] against filters [{Filters}]: {Result}", 
-                                    post.Title, 
-                                    string.Join(", ", post.Labels ?? Array.Empty<string>()), 
-                                    string.Join(", ", allFilter.Filters), 
-                                    filterFound ? "PASSED" : "FAILED");
 
                                 if (filterFound)
                                 {
                                     newPosts.Add(post);
-                                }
-                                else
-                                {
-                                    _logger.LogInformation(
-                                        "A new post was omitted because it does not comply to the all filter");
                                 }
                             }
                         }
