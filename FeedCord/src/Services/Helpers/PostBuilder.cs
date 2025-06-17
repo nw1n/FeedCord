@@ -68,15 +68,21 @@ namespace FeedCord.Services.Helpers
             int trim,
             string imageUrl)
         {
+            Console.WriteLine($"DEBUG: TryBuildPost called for post '{post.Title}' from feed link '{feed.Link}'");
+            
             if (feed.Link.Contains("reddit.com"))
             {
+                Console.WriteLine("DEBUG: Using Reddit post builder");
                 return TryBuildRedditPost(post, feed, trim, imageUrl);
             }
-            else if (feed.Link.Contains("gitlab.com"))
+            else if (feed.Link.Contains("gitlab.com") || feed.Link.Contains("/-/issues.atom") || feed.Title.Contains("gitlab"))
             {
+                Console.WriteLine("DEBUG: Using GitLab post builder (detected via feed patterns)");
                 return TryBuildGitlabPost(post, feed, trim, imageUrl);
             }
 
+            Console.WriteLine("DEBUG: Using general post builder");
+            
             string title;
             string imageLink;
             string description;
@@ -138,6 +144,8 @@ namespace FeedCord.Services.Helpers
             int trim,
             string imageUrl)
         {
+            Console.WriteLine($"DEBUG: TryBuildGitlabPost called for '{post.Title}'");
+            
             var title = post.Title ?? string.Empty;
             var link = post.Link ?? string.Empty;
             var description = DecodeContent(post.Description ?? string.Empty);
@@ -146,18 +154,29 @@ namespace FeedCord.Services.Helpers
             var pubDate = DateTime.TryParse(post.PublishingDate.ToString(), out var fallbackDate) ? fallbackDate : DateTime.Now;
             var labels = Array.Empty<string>();
 
-            // Extract labels from GitLab RSS XML
-            if (post.SpecificItem is AtomFeedItem { Element: not null } atomItem)
+            // Simple approach: Parse labels directly from raw XML
+            if (post.SpecificItem is AtomFeedItem atomItem && atomItem.Element != null)
             {
-                // GitLab labels are in the Atom namespace
-                XNamespace atomNs = "http://www.w3.org/2005/Atom";
-                var labelsElement = atomItem.Element.Element(atomNs + "labels");
+                // Debug: Let's see what's actually in the Element
+                Console.WriteLine($"DEBUG: Post '{title}' - Element name: {atomItem.Element.Name}");
+                Console.WriteLine($"DEBUG: All elements: {string.Join(", ", atomItem.Element.Elements().Select(e => e.Name.LocalName))}");
+                Console.WriteLine($"DEBUG: All descendants: {string.Join(", ", atomItem.Element.Descendants().Select(e => e.Name.LocalName))}");
+                
+                // Extract labels using simple LINQ to XML
+                var labelsElement = atomItem.Element.Descendants().FirstOrDefault(e => e.Name.LocalName == "labels");
                 if (labelsElement != null)
                 {
-                    labels = labelsElement.Elements(atomNs + "label")
-                        .Select(labelElement => labelElement.Value)
+                    Console.WriteLine($"DEBUG: Found labels element: {labelsElement}");
+                    labels = labelsElement.Descendants()
+                        .Where(e => e.Name.LocalName == "label")
+                        .Select(e => e.Value.Trim())
                         .Where(label => !string.IsNullOrWhiteSpace(label))
                         .ToArray();
+                    Console.WriteLine($"DEBUG: Extracted labels: [{string.Join(", ", labels)}]");
+                }
+                else
+                {
+                    Console.WriteLine("DEBUG: No labels element found");
                 }
                 
                 // Extract other fields from atom item if available
