@@ -7,7 +7,6 @@
         string Link,
         string Tag,
         DateTime PublishDate,
-        string Author,
-        string[] Labels = null
+        string Author
         );
 }
