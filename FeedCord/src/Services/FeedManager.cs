@@ -123,7 +123,7 @@ namespace FeedCord.Services
                     successfulAdd = _feedStates.TryAdd(url, new FeedState
                     {
                         IsYoutube = true,
-                        LastPublishDate = DateTime.Now,
+                        LastPublishDate = DateTime.Now.AddDays(-7),
                         ErrorCount = 0
                     });
                 }
@@ -132,7 +132,7 @@ namespace FeedCord.Services
                     successfulAdd = _feedStates.TryAdd(url, new FeedState
                     {
                         IsYoutube = false,
-                        LastPublishDate = DateTime.Now,
+                        LastPublishDate = DateTime.Now.AddDays(-7),
                         ErrorCount = 0
                     });
                 }
