@@ -138,8 +138,6 @@ namespace FeedCord.Services.Helpers
             int trim,
             string imageUrl)
         {
-            Console.WriteLine($"DEBUG: TryBuildGitlabPost called for '{post.Title}'");
-            
             var title = post.Title ?? string.Empty;
             var link = post.Link ?? string.Empty;
             var description = DecodeContent(post.Description ?? string.Empty);
