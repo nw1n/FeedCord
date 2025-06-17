@@ -68,11 +68,21 @@ namespace FeedCord.Services.Helpers
             int trim,
             string imageUrl)
         {
+            Console.WriteLine($"DEBUG: TryBuildPost called for post '{post.Title}' from feed link '{feed.Link}'");
+            
             if (feed.Link.Contains("reddit.com"))
             {
+                Console.WriteLine("DEBUG: Using Reddit post builder");
                 return TryBuildRedditPost(post, feed, trim, imageUrl);
             }
+            else if (feed.Link.Contains("gitlab.com") || feed.Link.Contains("/-/issues.atom") || feed.Title.Contains("gitlab"))
+            {
+                Console.WriteLine("DEBUG: Using GitLab post builder (detected via feed patterns)");
+                return TryBuildGitlabPost(post, feed, trim, imageUrl);
+            }
 
+            Console.WriteLine("DEBUG: Using general post builder");
+            
             string title;
             string imageLink;
             string description;
@@ -110,7 +120,7 @@ namespace FeedCord.Services.Helpers
             var decAuthor = DecodeContent(author);
 
             if (trim == 0) 
-                return new Post(title, imageLink, description, link, subtitle, pubDate, author);
+                return new Post(title, imageLink, description, link, subtitle, pubDate, author, Array.Empty<string>());
             
             if (description.Length > trim)
             {
@@ -124,7 +134,77 @@ namespace FeedCord.Services.Helpers
                 link, 
                 decSubtitle, 
                 pubDate, 
-                decAuthor);
+                decAuthor,
+                Array.Empty<string>());
+        }
+
+        private static Post TryBuildGitlabPost(
+            FeedItem post,
+            Feed feed,
+            int trim,
+            string imageUrl)
+        {
+            Console.WriteLine($"DEBUG: TryBuildGitlabPost called for '{post.Title}'");
+            
+            var title = post.Title ?? string.Empty;
+            var link = post.Link ?? string.Empty;
+            var description = DecodeContent(post.Description ?? string.Empty);
+            var subtitle = feed.Title;
+            var author = string.Empty;
+            var pubDate = DateTime.TryParse(post.PublishingDate.ToString(), out var fallbackDate) ? fallbackDate : DateTime.Now;
+            var labels = Array.Empty<string>();
+
+            // Simple approach: Parse labels directly from raw XML
+            if (post.SpecificItem is AtomFeedItem atomItem && atomItem.Element != null)
+            {
+                // Debug: Let's see what's actually in the Element
+                Console.WriteLine($"DEBUG: Post '{title}' - Element name: {atomItem.Element.Name}");
+                Console.WriteLine($"DEBUG: All elements: {string.Join(", ", atomItem.Element.Elements().Select(e => e.Name.LocalName))}");
+                Console.WriteLine($"DEBUG: All descendants: {string.Join(", ", atomItem.Element.Descendants().Select(e => e.Name.LocalName))}");
+                
+                // Extract labels using simple LINQ to XML
+                var labelsElement = atomItem.Element.Descendants().FirstOrDefault(e => e.Name.LocalName == "labels");
+                if (labelsElement != null)
+                {
+                    Console.WriteLine($"DEBUG: Found labels element: {labelsElement}");
+                    labels = labelsElement.Descendants()
+                        .Where(e => e.Name.LocalName == "label")
+                        .Select(e => e.Value.Trim())
+                        .Where(label => !string.IsNullOrWhiteSpace(label))
+                        .ToArray();
+                    Console.WriteLine($"DEBUG: Extracted labels: [{string.Join(", ", labels)}]");
+                }
+                else
+                {
+                    Console.WriteLine("DEBUG: No labels element found");
+                }
+                
+                // Extract other fields from atom item if available
+                title = atomItem.Title ?? title;
+                author = TryGetAuthor(post);
+                pubDate = DateTime.TryParse(atomItem.PublishedDate?.ToString(), out var tempDate) 
+                    ? tempDate 
+                    : DateTime.TryParse(atomItem.UpdatedDate?.ToString(), out tempDate) 
+                        ? tempDate 
+                        : pubDate;
+            }
+
+            // trim description
+            if (trim > 0 && description.Length > trim)
+            {
+                description = description[..trim] + "...";
+            }
+
+            return new Post(
+                Title: title,
+                ImageUrl: "",
+                Description: description,
+                Link: link,
+                Tag: subtitle,
+                PublishDate: pubDate,
+                Author: author,
+                Labels: labels
+            );
         }
 
         private static Post TryBuildRedditPost(
@@ -207,7 +287,8 @@ namespace FeedCord.Services.Helpers
                 Link: link,
                 Tag: subtitle,
                 PublishDate: pubDate,
-                Author: author
+                Author: author,
+                Labels: Array.Empty<string>()
             );
         }
 
