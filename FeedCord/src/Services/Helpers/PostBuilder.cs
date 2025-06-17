@@ -149,10 +149,12 @@ namespace FeedCord.Services.Helpers
             // Extract labels from GitLab RSS XML
             if (post.SpecificItem is AtomFeedItem { Element: not null } atomItem)
             {
-                var labelsElement = atomItem.Element.Element("labels");
+                // GitLab labels are in the Atom namespace
+                XNamespace atomNs = "http://www.w3.org/2005/Atom";
+                var labelsElement = atomItem.Element.Element(atomNs + "labels");
                 if (labelsElement != null)
                 {
-                    labels = labelsElement.Elements("label")
+                    labels = labelsElement.Elements(atomNs + "label")
                         .Select(labelElement => labelElement.Value)
                         .Where(label => !string.IsNullOrWhiteSpace(label))
                         .ToArray();
