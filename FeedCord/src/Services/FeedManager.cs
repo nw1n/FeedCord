@@ -9,7 +9,7 @@ using FeedCord.Core.Interfaces;
 using FeedCord.Services.Helpers;
 
 namespace FeedCord.Services
-{_logger.LogInformation
+{
     public class FeedManager : IFeedManager
     {
         private readonly bool _hasAllFilter = false;
