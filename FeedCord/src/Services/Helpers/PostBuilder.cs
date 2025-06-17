@@ -114,7 +114,7 @@ namespace FeedCord.Services.Helpers
             var decAuthor = DecodeContent(author);
 
             if (trim == 0) 
-                return new Post(title, imageLink, description, link, subtitle, pubDate, author);
+                return new Post(title, imageLink, description, link, subtitle, pubDate, author, Array.Empty<string>());
             
             if (description.Length > trim)
             {
@@ -128,7 +128,8 @@ namespace FeedCord.Services.Helpers
                 link, 
                 decSubtitle, 
                 pubDate, 
-                decAuthor);
+                decAuthor,
+                Array.Empty<string>());
         }
 
         private static Post TryBuildGitlabPost(
@@ -143,6 +144,29 @@ namespace FeedCord.Services.Helpers
             var subtitle = feed.Title;
             var author = string.Empty;
             var pubDate = DateTime.MinValue;
+            var labels = Array.Empty<string>();
+
+            // Extract labels from GitLab RSS XML
+            if (post.SpecificItem is AtomFeedItem { Element: not null } atomItem)
+            {
+                var labelsElement = atomItem.Element.Element("labels");
+                if (labelsElement != null)
+                {
+                    labels = labelsElement.Elements("label")
+                        .Select(labelElement => labelElement.Value)
+                        .Where(label => !string.IsNullOrWhiteSpace(label))
+                        .ToArray();
+                }
+                
+                // Extract other fields from atom item if available
+                title = atomItem.Title ?? title;
+                author = TryGetAuthor(post);
+                pubDate = DateTime.TryParse(atomItem.PublishedDate?.ToString(), out var tempDate) 
+                    ? tempDate 
+                    : DateTime.TryParse(atomItem.UpdatedDate?.ToString(), out tempDate) 
+                        ? tempDate 
+                        : DateTime.MinValue;
+            }
 
             // trim description
             if (trim > 0 && description.Length > trim)
@@ -157,7 +181,8 @@ namespace FeedCord.Services.Helpers
                 Link: link,
                 Tag: subtitle,
                 PublishDate: pubDate,
-                Author: author
+                Author: author,
+                Labels: labels
             );
         }
 
@@ -241,7 +266,8 @@ namespace FeedCord.Services.Helpers
                 Link: link,
                 Tag: subtitle,
                 PublishDate: pubDate,
-                Author: author
+                Author: author,
+                Labels: Array.Empty<string>()
             );
         }
 
